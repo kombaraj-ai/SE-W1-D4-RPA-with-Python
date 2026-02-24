@@ -204,16 +204,19 @@ print("Automation complete!")
 
 ```python
 import pyautogui
-import subprocess
 import time
+import subprocess
 
 # Open Notepad
 subprocess.Popen(["notepad.exe"])
 time.sleep(1)  # Wait for Notepad to open
-
+pyautogui.hotkey("ctrl", "n")  
 # Type into Notepad
 pyautogui.typewrite("This text was typed by a Python RPA bot.", interval=0.05)
-pyautogui.hotkey("ctrl", "s")  # Save the file
+pyautogui.hotkey("ctrl", "s")
+pyautogui.typewrite("Test.txt", interval=0.05)
+# Press Enter
+pyautogui.press("enter")
 ```
 
 ### When to Use PyAutoGUI
