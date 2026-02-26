@@ -3,6 +3,10 @@
 ## Table of Contents
 
 *   [Create a RPA Python App with Virtual Environment](#create-a-rpa-python-app-with-virtual-environment)
+*   [Assignment 1: pyAutoGUI RPA Automation](Assignment1_pyAutoGUI/PROJECT_SUMMARY.md)
+    *   [Run Assignment 1 Demo](Assignment1_pyAutoGUI/QUICK_START.md)
+*   [Assignment 2: Playwright Automation](Assignment2_Playwright/PROJECT_SUMMARY.md)
+    *   [Run Assignment 2 Demo](Assignment2_Playwright/QUICK_START.md)
 *   [Python RPA: Robotic Process Automation](#python-rpa-robotic-process-automation)
     *   [Module 1: PyAutoGUI](#module-1-pyautogui)
         *   [PyAutoGUI Core Operations](#pyautogui-core-operations)
@@ -11,6 +15,10 @@
             *   [3. Keyboard Operations](#3-keyboard-operations)
             *   [4. Image Recognition](#4-image-recognition)
     *   [Module 2: Playwright](#module-2-playwright)
+        *   [1. Browser Context](#1-browser-context)
+        *   [2. Pages](#2-pages)
+        *   [3. Selectors](#3-selectors)
+        *   [4. Async](#4-async)                    
     *   [Module 3: Selenium](#module-3-selenium)        
 
 
@@ -1046,6 +1054,1500 @@ with sync_playwright() as p:
 ### When to Use Playwright
 
 Use Playwright when automating **modern web applications**, especially those with dynamic content, JavaScript rendering, or when you need fast and reliable test automation.
+
+
+## 1. Browser Context
+
+A **Browser Context** is an isolated, incognito-like session within a browser instance. Each context has its own cookies, cache, and local storage. This is perfect for testing multiple user sessions simultaneously or testing in isolation.
+
+### Why Use Browser Contexts?
+
+- **Isolation**: Each context is independent (separate cookies, storage, cache)
+- **Efficiency**: Faster than launching multiple browser instances
+- **Parallel Testing**: Run multiple test scenarios simultaneously
+- **User Simulation**: Simulate different users in the same browser
+
+### Creating a Browser Context (Sync API)
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    # Launch browser
+    browser = p.chromium.launch(headless=False)
+    
+    # Create a new browser context
+    context = browser.new_context()
+    
+    # Create a page in this context
+    page = context.new_page()
+    page.goto('https://example.com')
+    
+    # Close context
+    context.close()
+    browser.close()
+```
+
+### Multiple Browser Contexts
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    
+    # Create first context (User 1)
+    context1 = browser.new_context()
+    page1 = context1.new_page()
+    page1.goto('https://example.com')
+    page1.fill('input[name="username"]', 'user1')
+    
+    # Create second context (User 2)
+    context2 = browser.new_context()
+    page2 = context2.new_page()
+    page2.goto('https://example.com')
+    page2.fill('input[name="username"]', 'user2')
+    
+    # Both users are logged in separately in the same browser
+    print(f"User 1 is on: {page1.url}")
+    print(f"User 2 is on: {page2.url}")
+    
+    # Cleanup
+    context1.close()
+    context2.close()
+    browser.close()
+```
+
+### Browser Context Options
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    
+    # Create context with custom options
+    context = browser.new_context(
+        viewport={'width': 1920, 'height': 1080},
+        user_agent='Custom User Agent String',
+        locale='en-US',
+        timezone_id='America/New_York',
+        permissions=['geolocation'],
+        geolocation={'latitude': 40.7128, 'longitude': -74.0060},
+        color_scheme='dark',  # 'light', 'dark', or 'no-preference'
+        device_scale_factor=2,
+        has_touch=True,
+        is_mobile=False,
+        ignore_https_errors=True,
+        accept_downloads=True
+    )
+    
+    page = context.new_page()
+    page.goto('https://example.com')
+    
+    context.close()
+    browser.close()
+```
+
+### Mobile Emulation with Context
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    
+    # Emulate iPhone 12
+    iphone_12 = p.devices['iPhone 12']
+    context = browser.new_context(**iphone_12)
+    
+    page = context.new_page()
+    page.goto('https://example.com')
+    
+    # Take screenshot
+    page.screenshot(path='mobile_view.png')
+    
+    context.close()
+    browser.close()
+```
+
+### Available Device Descriptors
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    # List all available devices
+    print("Available devices:")
+    for device_name in p.devices:
+        print(f"  - {device_name}")
+    
+    # Common devices:
+    # 'iPhone 12', 'iPhone 13', 'iPhone 13 Pro', 'iPhone 14'
+    # 'Pixel 5', 'Galaxy S9+', 'Galaxy S21'
+    # 'iPad Pro', 'iPad Mini'
+    # 'Desktop Chrome', 'Desktop Firefox', 'Desktop Safari'
+```
+
+### Authentication and Cookies in Context
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    
+    # Create context with HTTP authentication
+    context = browser.new_context(
+        http_credentials={
+            'username': 'admin',
+            'password': 'secret123'
+        }
+    )
+    
+    page = context.new_page()
+    page.goto('https://example.com/admin')
+    
+    # Add cookies to context
+    context.add_cookies([
+        {
+            'name': 'session_id',
+            'value': 'abc123xyz',
+            'domain': 'example.com',
+            'path': '/'
+        }
+    ])
+    
+    # Get cookies from context
+    cookies = context.cookies()
+    print(f"Current cookies: {cookies}")
+    
+    # Clear cookies
+    context.clear_cookies()
+    
+    context.close()
+    browser.close()
+```
+
+### Persistent Context (Save Session)
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    # Launch persistent context (saves user data)
+    context = p.chromium.launch_persistent_context(
+        user_data_dir='./user_data',  # Directory to save session data
+        headless=False,
+        viewport={'width': 1920, 'height': 1080}
+    )
+    
+    page = context.pages[0]  # Use existing page
+    page.goto('https://example.com')
+    
+    # Login and session will be saved
+    # Next time, user will be logged in automatically
+    
+    context.close()
+```
+
+### Context Events and Tracing
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    context = browser.new_context()
+    
+    # Start tracing (for debugging)
+    context.tracing.start(screenshots=True, snapshots=True)
+    
+    # Listen to context events
+    context.on('page', lambda page: print(f'New page created: {page.url}'))
+    context.on('close', lambda: print('Context closed'))
+    
+    page = context.new_page()
+    page.goto('https://example.com')
+    
+    # Stop tracing and save
+    context.tracing.stop(path='trace.zip')
+    
+    context.close()
+    browser.close()
+```
+
+### Complete Example: Multiple User Sessions
+
+```python
+from playwright.sync_api import sync_playwright
+import time
+
+def simulate_user(context, username, user_num):
+    """Simulate a user session in a separate context"""
+    page = context.new_page()
+    page.goto('https://example.com/login')
+    
+    # Login
+    page.fill('input[name="username"]', username)
+    page.fill('input[name="password"]', 'password123')
+    page.click('button[type="submit"]')
+    
+    # Navigate to dashboard
+    page.wait_for_url('**/dashboard')
+    print(f"User {user_num} ({username}) logged in successfully")
+    
+    # Perform some actions
+    page.click('a[href="/profile"]')
+    time.sleep(2)
+    
+    return page
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    
+    # Simulate 3 different users
+    users = ['alice', 'bob', 'charlie']
+    contexts = []
+    pages = []
+    
+    for i, username in enumerate(users, 1):
+        # Create isolated context for each user
+        context = browser.new_context(
+            viewport={'width': 1280, 'height': 720}
+        )
+        contexts.append(context)
+        
+        # Simulate user session
+        page = simulate_user(context, username, i)
+        pages.append(page)
+    
+    # All users are now logged in simultaneously
+    print(f"\n{len(users)} users are active in separate contexts")
+    input("Press Enter to close all sessions...")
+    
+    # Cleanup
+    for context in contexts:
+        context.close()
+    browser.close()
+```
+
+---
+
+## 2. Pages
+
+A **Page** represents a single tab or window in the browser context. Pages are where you interact with web content.
+
+### Creating and Managing Pages
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    context = browser.new_context()
+    
+    # Create a new page
+    page = context.new_page()
+    
+    # Navigate to URL
+    page.goto('https://example.com')
+    
+    # Get page title
+    title = page.title()
+    print(f"Page title: {title}")
+    
+    # Get page URL
+    url = page.url
+    print(f"Current URL: {url}")
+    
+    # Close page
+    page.close()
+    
+    context.close()
+    browser.close()
+```
+
+### Multiple Pages (Tabs)
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    context = browser.new_context()
+    
+    # Create multiple pages (tabs)
+    page1 = context.new_page()
+    page1.goto('https://google.com')
+    
+    page2 = context.new_page()
+    page2.goto('https://github.com')
+    
+    page3 = context.new_page()
+    page3.goto('https://stackoverflow.com')
+    
+    # Get all pages in context
+    all_pages = context.pages
+    print(f"Total pages: {len(all_pages)}")
+    
+    # Switch between pages
+    page1.bring_to_front()
+    page1.fill('input[name="q"]', 'Playwright')
+    
+    page2.bring_to_front()
+    print(f"Page 2 title: {page2.title()}")
+    
+    # Close specific page
+    page2.close()
+    
+    context.close()
+    browser.close()
+```
+
+### Page Navigation
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=False)
+    page = browser.new_page()
+    
+    # Navigate to URL
+    page.goto('https://example.com')
+    
+    # Navigate and wait for specific state
+    page.goto('https://example.com', wait_until='networkidle')
+    # Options: 'load', 'domcontentloaded', 'networkidle'
+    
+    # Navigate with timeout
+    page.goto('https://example.com', timeout=30000)  # 30 seconds
+    
+    # Navigate back
+    page.go_back()
+    
+    # Navigate forward
+    page.go_forward()
+    
+    # Reload page
+    page.reload()
+    
+    # Wait for navigation
+    with page.expect_navigation():
+        page.click('a[href="/next-page"]')
+    
+    browser.close()
+```
+
+### Page Content and Evaluation
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Get page content (HTML)
+    content = page.content()
+    print(f"HTML length: {len(content)}")
+    
+    # Set content directly
+    page.set_content('<h1>Hello World</h1><p>This is a test</p>')
+    
+    # Evaluate JavaScript
+    result = page.evaluate('() => document.title')
+    print(f"Title via JS: {result}")
+    
+    # Evaluate with arguments
+    result = page.evaluate('(x, y) => x + y', 5, 10)
+    print(f"5 + 10 = {result}")
+    
+    # Execute complex JavaScript
+    dimensions = page.evaluate('''() => {
+        return {
+            width: document.documentElement.clientWidth,
+            height: document.documentElement.clientHeight,
+            devicePixelRatio: window.devicePixelRatio
+        }
+    }''')
+    print(f"Page dimensions: {dimensions}")
+    
+    browser.close()
+```
+
+### Page Screenshots and PDFs
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Take full page screenshot
+    page.screenshot(path='screenshot_full.png', full_page=True)
+    
+    # Take viewport screenshot
+    page.screenshot(path='screenshot_viewport.png')
+    
+    # Screenshot with options
+    page.screenshot(
+        path='screenshot_custom.png',
+        type='png',  # 'png' or 'jpeg'
+        quality=80,  # For JPEG only (0-100)
+        full_page=False,
+        clip={'x': 0, 'y': 0, 'width': 800, 'height': 600}
+    )
+    
+    # Screenshot as bytes
+    screenshot_bytes = page.screenshot()
+    
+    # Generate PDF (Chromium only)
+    page.pdf(
+        path='page.pdf',
+        format='A4',
+        print_background=True,
+        margin={'top': '1cm', 'right': '1cm', 'bottom': '1cm', 'left': '1cm'}
+    )
+    
+    browser.close()
+```
+
+### Page Events and Listeners
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    
+    # Listen to console messages
+    page.on('console', lambda msg: print(f'Console [{msg.type}]: {msg.text}'))
+    
+    # Listen to page errors
+    page.on('pageerror', lambda err: print(f'Page error: {err}'))
+    
+    # Listen to requests
+    page.on('request', lambda req: print(f'Request: {req.method} {req.url}'))
+    
+    # Listen to responses
+    page.on('response', lambda res: print(f'Response: {res.status} {res.url}'))
+    
+    # Listen to dialogs (alert, confirm, prompt)
+    page.on('dialog', lambda dialog: dialog.accept())
+    
+    # Listen to downloads
+    def handle_download(download):
+        print(f'Download started: {download.suggested_filename}')
+        download.save_as(f'./downloads/{download.suggested_filename}')
+    
+    page.on('download', handle_download)
+    
+    # Listen to popup (new window/tab)
+    def handle_popup(popup):
+        print(f'Popup opened: {popup.url}')
+        popup.close()
+    
+    page.on('popup', handle_popup)
+    
+    page.goto('https://example.com')
+    
+    browser.close()
+```
+
+### Page Viewport and Emulation
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    
+    # Set viewport size
+    page.set_viewport_size(width=1920, height=1080)
+    
+    # Get viewport size
+    viewport = page.viewport_size
+    print(f"Viewport: {viewport['width']}x{viewport['height']}")
+    
+    # Emulate media (CSS media queries)
+    page.emulate_media(media='print')  # 'screen' or 'print'
+    
+    # Emulate color scheme
+    page.emulate_media(color_scheme='dark')  # 'light', 'dark', 'no-preference'
+    
+    # Emulate geolocation
+    context = page.context
+    context.set_geolocation(latitude=40.7128, longitude=-74.0060)
+    context.grant_permissions(['geolocation'])
+    
+    page.goto('https://example.com')
+    
+    browser.close()
+```
+
+### Page Waiting Methods
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Wait for selector
+    page.wait_for_selector('h1')
+    
+    # Wait for selector with state
+    page.wait_for_selector('button', state='visible')
+    # States: 'attached', 'detached', 'visible', 'hidden'
+    
+    # Wait for URL
+    page.wait_for_url('**/dashboard')
+    
+    # Wait for load state
+    page.wait_for_load_state('networkidle')
+    # States: 'load', 'domcontentloaded', 'networkidle'
+    
+    # Wait for timeout
+    page.wait_for_timeout(3000)  # Wait 3 seconds
+    
+    # Wait for function
+    page.wait_for_function('() => document.readyState === "complete"')
+    
+    # Wait for custom condition
+    page.wait_for_function('() => document.querySelectorAll(".item").length > 5')
+    
+    browser.close()
+```
+
+### Complete Example: Multi-Page Scraping
+
+```python
+from playwright.sync_api import sync_playwright
+import json
+
+def scrape_page(page, url):
+    """Scrape data from a single page"""
+    page.goto(url)
+    page.wait_for_load_state('networkidle')
+    
+    # Extract data
+    data = page.evaluate('''() => {
+        const items = [];
+        document.querySelectorAll('.product').forEach(product => {
+            items.push({
+                title: product.querySelector('h2')?.textContent,
+                price: product.querySelector('.price')?.textContent,
+                rating: product.querySelector('.rating')?.textContent
+            });
+        });
+        return items;
+    }''')
+    
+    return data
+
+with sync_playwright() as p:
+    browser = p.chromium.launch(headless=True)
+    context = browser.new_context()
+    
+    # URLs to scrape
+    urls = [
+        'https://example.com/category1',
+        'https://example.com/category2',
+        'https://example.com/category3'
+    ]
+    
+    all_data = []
+    
+    # Create a page for each URL
+    for i, url in enumerate(urls, 1):
+        print(f"Scraping page {i}/{len(urls)}: {url}")
+        page = context.new_page()
+        data = scrape_page(page, url)
+        all_data.extend(data)
+        page.close()
+    
+    # Save results
+    with open('scraped_data.json', 'w') as f:
+        json.dump(all_data, f, indent=2)
+    
+    print(f"Total items scraped: {len(all_data)}")
+    
+    context.close()
+    browser.close()
+```
+
+---
+
+## 3. Selectors
+
+Playwright supports multiple selector engines (CSS, XPath, Text, etc) to locate elements on a page.
+
+### CSS Selectors
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Basic CSS selectors
+    page.click('button')                    # Tag name
+    page.click('#submit-btn')               # ID
+    page.click('.btn-primary')              # Class
+    page.click('button.btn-primary')        # Tag + class
+    page.click('div > button')              # Direct child
+    page.click('div button')                # Descendant
+    page.click('button[type="submit"]')     # Attribute
+    page.click('button[data-id="123"]')     # Data attribute
+    
+    # Advanced CSS selectors
+    page.click('button:nth-child(2)')       # nth-child
+    page.click('input:first-of-type')       # First of type
+    page.click('button:last-child')         # Last child
+    page.click('div:not(.disabled)')        # Not selector
+    page.click('input[type="text"]:focus')  # Pseudo-class
+    
+    # Multiple selectors (OR)
+    page.click('button.submit, button.send, input[type="submit"]')
+    
+    browser.close()
+```
+
+### XPath Selectors
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # XPath selectors (use xpath= prefix)
+    page.click('xpath=//button')                          # Basic XPath
+    page.click('xpath=//button[@id="submit"]')            # Attribute
+    page.click('xpath=//button[@class="btn-primary"]')    # Class attribute
+    page.click('xpath=//div[@data-testid="container"]//button')  # Nested
+    
+    # XPath text matching
+    page.click('xpath=//button[text()="Submit"]')         # Exact text
+    page.click('xpath=//button[contains(text(), "Submit")]')  # Contains text
+    page.click('xpath=//button[starts-with(text(), "Sub")]')  # Starts with
+    
+    # XPath axes
+    page.click('xpath=//button/following-sibling::a')     # Following sibling
+    page.click('xpath=//button/parent::div')              # Parent
+    page.click('xpath=//button/ancestor::form')           # Ancestor
+    
+    # XPath predicates
+    page.click('xpath=(//button)[1]')                     # First button
+    page.click('xpath=(//button)[last()]')                # Last button
+    page.click('xpath=//button[@type="submit"][1]')       # First submit button
+    
+    browser.close()
+```
+
+### Text Selectors
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Text selectors (use text= prefix)
+    page.click('text=Submit')                    # Exact text match
+    page.click('text="Submit Form"')             # Exact text with spaces
+    
+    # Case-insensitive text matching
+    page.click('text=/submit/i')                 # Regex, case-insensitive
+    
+    # Partial text matching
+    page.click('text=Sub')                       # Substring match
+    
+    # Text with regex
+    page.click('text=/^Submit.*/')               # Starts with "Submit"
+    page.click('text=/.*button$/i')              # Ends with "button"
+    
+    browser.close()
+```
+
+### Role Selectors (Accessible)
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Role-based selectors (accessible)
+    page.click('role=button')                              # Any button
+    page.click('role=button[name="Submit"]')               # Button with name
+    page.click('role=textbox[name="Username"]')            # Textbox
+    page.click('role=link[name="Home"]')                   # Link
+    page.click('role=checkbox[name="Accept"]')             # Checkbox
+    
+    # Common roles:
+    # button, link, textbox, checkbox, radio, combobox, 
+    # listbox, menuitem, tab, heading, img, table, row, cell
+    
+    # Role with additional attributes
+    page.click('role=button[name="Submit"][disabled=false]')
+    page.click('role=textbox[name=/email/i]')  # Case-insensitive regex
+    
+    browser.close()
+```
+
+### Data-testid Selectors
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Using data-testid (common in React/Vue apps)
+    page.click('[data-testid="submit-button"]')
+    page.fill('[data-testid="username-input"]', 'john_doe')
+    page.click('[data-testid="login-form"] button')
+    
+    # Using data-cy (Cypress convention)
+    page.click('[data-cy="submit-btn"]')
+    
+    # Using data-qa (QA convention)
+    page.click('[data-qa="submit"]')
+    
+    browser.close()
+```
+
+### Chaining Selectors
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Chain CSS selectors with >>
+    page.click('div.container >> button.submit')
+    
+    # Chain different selector types
+    page.click('css=div.form >> text=Submit')
+    page.click('xpath=//div[@class="modal"] >> css=button.close')
+    
+    # Complex chaining
+    page.click('div#main >> ul.menu >> li:nth-child(2) >> a')
+    
+    browser.close()
+```
+
+### Getting Multiple Elements
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Get all matching elements
+    buttons = page.locator('button').all()
+    print(f"Found {len(buttons)} buttons")
+    
+    # Iterate through elements
+    links = page.locator('a').all()
+    for link in links:
+        href = link.get_attribute('href')
+        text = link.text_content()
+        print(f"Link: {text} -> {href}")
+    
+    # Get element count
+    count = page.locator('button').count()
+    print(f"Total buttons: {count}")
+    
+    # Get nth element
+    first_button = page.locator('button').nth(0)
+    second_button = page.locator('button').nth(1)
+    last_button = page.locator('button').nth(-1)
+    
+    browser.close()
+```
+
+### Locator Methods
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Create locator
+    submit_button = page.locator('button[type="submit"]')
+    
+    # Click locator
+    submit_button.click()
+    
+    # Get text content
+    text = submit_button.text_content()
+    print(f"Button text: {text}")
+    
+    # Get inner text
+    inner_text = submit_button.inner_text()
+    
+    # Get inner HTML
+    html = submit_button.inner_html()
+    
+    # Get attribute
+    button_id = submit_button.get_attribute('id')
+    data_value = submit_button.get_attribute('data-value')
+    
+    # Check visibility
+    is_visible = submit_button.is_visible()
+    is_hidden = submit_button.is_hidden()
+    
+    # Check state
+    is_enabled = submit_button.is_enabled()
+    is_disabled = submit_button.is_disabled()
+    is_checked = submit_button.is_checked()  # For checkboxes/radios
+    
+    # Wait for locator
+    submit_button.wait_for(state='visible')
+    submit_button.wait_for(state='hidden')
+    
+    browser.close()
+```
+
+### Filtering Locators
+
+```python
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    
+    # Filter by text
+    submit_btn = page.locator('button').filter(has_text='Submit')
+    submit_btn.click()
+    
+    # Filter by regex
+    email_input = page.locator('input').filter(has_text=r'.*email.*')
+    
+    # Filter by child element
+    form = page.locator('form').filter(has=page.locator('button[type="submit"]'))
+    
+    # Filter by NOT
+    active_items = page.locator('.item').filter(has_not=page.locator('.disabled'))
+    
+    # Combine filters
+    specific_button = page.locator('button').filter(
+        has_text='Submit'
+    ).filter(
+        has_not=page.locator('.disabled')
+    )
+    
+    browser.close()
+```
+
+### Complete Selector Example
+
+```python
+from playwright.sync_api import sync_playwright
+
+def test_login_with_different_selectors(page):
+    """Demonstrate different ways to select the same elements"""
+    
+    # Username field - Multiple approaches
+    # Approach 1: CSS ID
+    page.fill('#username', 'john_doe')
+    
+    # Approach 2: CSS attribute
+    page.fill('input[name="username"]', 'john_doe')
+    
+    # Approach 3: CSS class
+    page.fill('input.username-field', 'john_doe')
+    
+    # Approach 4: XPath
+    page.fill('xpath=//input[@name="username"]', 'john_doe')
+    
+    # Approach 5: Data attribute
+    page.fill('[data-testid="username-input"]', 'john_doe')
+    
+    # Approach 6: Role (accessible)
+    page.fill('role=textbox[name="Username"]', 'john_doe')
+    
+    # Password field
+    page.fill('input[type="password"]', 'SecurePass123')
+    
+    # Submit button - Multiple approaches
+    # Approach 1: CSS ID
+    page.click('#submit-btn')
+    
+    # Approach 2: Text content
+    page.click('text=Login')
+    
+    # Approach 3: Role
+    page.click('role=button[name="Login"]')
+    
+    # Approach 4: XPath with text
+    page.click('xpath=//button[contains(text(), "Login")]')
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com/login')
+    
+    test_login_with_different_selectors(page)
+    
+    browser.close()
+```
+
+---
+
+## 4. Async
+
+Playwright supports both **synchronous** and **asynchronous** APIs. The async API is useful for concurrent operations and integrates well with modern Python async frameworks.
+
+### Why Use Async?
+
+- **Better Performance**: Run multiple operations concurrently
+- **Non-blocking**: Don't wait for slow operations
+- **Scalability**: Handle multiple browsers/pages simultaneously
+- **Integration**: Works with async frameworks (FastAPI, aiohttp, etc.)
+
+### Basic Async Example
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto('https://example.com')
+        
+        title = await page.title()
+        print(f"Page title: {title}")
+        
+        await browser.close()
+
+# Run async function
+asyncio.run(main())
+```
+
+### Async vs Sync Comparison
+
+```python
+# SYNCHRONOUS (Blocking)
+from playwright.sync_api import sync_playwright
+
+with sync_playwright() as p:
+    browser = p.chromium.launch()
+    page = browser.new_page()
+    page.goto('https://example.com')
+    page.click('button')
+    browser.close()
+
+# ASYNCHRONOUS (Non-blocking)
+import asyncio
+from playwright.async_api import async_playwright
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto('https://example.com')
+        await page.click('button')
+        await browser.close()
+
+asyncio.run(main())
+```
+
+### Concurrent Page Operations
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+async def scrape_page(page, url):
+    """Scrape a single page"""
+    await page.goto(url)
+    title = await page.title()
+    content = await page.content()
+    return {'url': url, 'title': title, 'length': len(content)}
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        
+        # Create multiple pages
+        page1 = await browser.new_page()
+        page2 = await browser.new_page()
+        page3 = await browser.new_page()
+        
+        # Scrape concurrently (all at once)
+        results = await asyncio.gather(
+            scrape_page(page1, 'https://example.com'),
+            scrape_page(page2, 'https://github.com'),
+            scrape_page(page3, 'https://stackoverflow.com')
+        )
+        
+        for result in results:
+            print(f"{result['url']}: {result['title']} ({result['length']} bytes)")
+        
+        await browser.close()
+
+asyncio.run(main())
+```
+
+### Async with Multiple Browsers
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+async def test_in_browser(browser_type, url):
+    """Run test in specific browser"""
+    async with async_playwright() as p:
+        if browser_type == 'chromium':
+            browser = await p.chromium.launch()
+        elif browser_type == 'firefox':
+            browser = await p.firefox.launch()
+        elif browser_type == 'webkit':
+            browser = await p.webkit.launch()
+        
+        page = await browser.new_page()
+        await page.goto(url)
+        
+        title = await page.title()
+        print(f"{browser_type}: {title}")
+        
+        await browser.close()
+        return browser_type
+
+async def main():
+    # Test in all browsers concurrently
+    results = await asyncio.gather(
+        test_in_browser('chromium', 'https://example.com'),
+        test_in_browser('firefox', 'https://example.com'),
+        test_in_browser('webkit', 'https://example.com')
+    )
+    print(f"Tested in: {results}")
+
+asyncio.run(main())
+```
+
+### Async Error Handling
+
+```python
+import asyncio
+from playwright.async_api import async_playwright, TimeoutError
+
+async def safe_navigation(page, url):
+    """Navigate with error handling"""
+    try:
+        await page.goto(url, timeout=5000)
+        print(f"Successfully loaded: {url}")
+    except TimeoutError:
+        print(f"Timeout loading: {url}")
+    except Exception as e:
+        print(f"Error loading {url}: {e}")
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        
+        # Try loading multiple URLs
+        urls = [
+            'https://example.com',
+            'https://invalid-domain-xyz123.com',
+            'https://github.com'
+        ]
+        
+        for url in urls:
+            await safe_navigation(page, url)
+        
+        await browser.close()
+
+asyncio.run(main())
+```
+
+### Async with Context Manager
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+class BrowserManager:
+    """Context manager for browser"""
+    def __init__(self, playwright):
+        self.playwright = playwright
+        self.browser = None
+    
+    async def __aenter__(self):
+        self.browser = await self.playwright.chromium.launch()
+        return self.browser
+    
+    async def __aexit__(self, exc_type, exc_val, exc_tb):
+        if self.browser:
+            await self.browser.close()
+
+async def main():
+    async with async_playwright() as p:
+        async with BrowserManager(p) as browser:
+            page = await browser.new_page()
+            await page.goto('https://example.com')
+            print(f"Title: {await page.title()}")
+            # Browser automatically closes after this block
+
+asyncio.run(main())
+```
+
+### Async Tasks and Scheduling
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+async def monitor_page(page, interval=5):
+    """Monitor page changes every N seconds"""
+    while True:
+        title = await page.title()
+        url = page.url
+        print(f"[{asyncio.get_event_loop().time():.0f}s] {title} - {url}")
+        await asyncio.sleep(interval)
+
+async def interact_with_page(page):
+    """Interact with page while monitoring"""
+    await page.goto('https://example.com')
+    await asyncio.sleep(3)
+    
+    await page.click('a')
+    await asyncio.sleep(3)
+    
+    await page.go_back()
+    await asyncio.sleep(3)
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch(headless=False)
+        page = await browser.new_page()
+        
+        # Run monitor and interactions concurrently
+        monitor_task = asyncio.create_task(monitor_page(page, interval=2))
+        
+        try:
+            await interact_with_page(page)
+        finally:
+            monitor_task.cancel()
+        
+        await browser.close()
+
+asyncio.run(main())
+```
+
+### Async Waiting Operations
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        await page.goto('https://example.com')
+        
+        # Wait for selector (async)
+        await page.wait_for_selector('h1')
+        
+        # Wait for multiple conditions concurrently
+        await asyncio.gather(
+            page.wait_for_selector('.content'),
+            page.wait_for_load_state('networkidle'),
+            page.wait_for_function('() => document.readyState === "complete"')
+        )
+        
+        # Wait with timeout
+        try:
+            await asyncio.wait_for(
+                page.wait_for_selector('.slow-element'),
+                timeout=5.0
+            )
+        except asyncio.TimeoutError:
+            print("Element did not appear in 5 seconds")
+        
+        # Wait for any of multiple conditions (first to complete)
+        done, pending = await asyncio.wait(
+            [
+                asyncio.create_task(page.wait_for_selector('.option1')),
+                asyncio.create_task(page.wait_for_selector('.option2')),
+                asyncio.create_task(page.wait_for_selector('.option3'))
+            ],
+            return_when=asyncio.FIRST_COMPLETED
+        )
+        
+        # Cancel pending tasks
+        for task in pending:
+            task.cancel()
+        
+        await browser.close()
+
+asyncio.run(main())
+```
+
+### Complete Async Example: Concurrent Web Scraping
+
+```python
+import asyncio
+import json
+from playwright.async_api import async_playwright
+
+async def scrape_product(page, url):
+    """Scrape a single product page"""
+    try:
+        await page.goto(url, wait_until='networkidle')
+        
+        # Extract product data
+        data = await page.evaluate('''() => {
+            return {
+                title: document.querySelector('h1')?.textContent,
+                price: document.querySelector('.price')?.textContent,
+                description: document.querySelector('.description')?.textContent,
+                rating: document.querySelector('.rating')?.textContent,
+                availability: document.querySelector('.stock')?.textContent
+            };
+        }''')
+        
+        data['url'] = url
+        print(f"✓ Scraped: {data['title']}")
+        return data
+        
+    except Exception as e:
+        print(f"✗ Error scraping {url}: {e}")
+        return None
+
+async def scrape_category(context, category_url, max_products=10):
+    """Scrape all products from a category"""
+    page = await context.new_page()
+    await page.goto(category_url)
+    
+    # Get product links
+    product_links = await page.evaluate(f'''() => {{
+        const links = Array.from(document.querySelectorAll('.product-link'));
+        return links.slice(0, {max_products}).map(a => a.href);
+    }}''')
+    
+    print(f"Found {len(product_links)} products in {category_url}")
+    
+    # Create tasks for concurrent scraping
+    tasks = []
+    for link in product_links:
+        product_page = await context.new_page()
+        task = asyncio.create_task(scrape_product(product_page, link))
+        tasks.append(task)
+    
+    # Wait for all scraping to complete
+    results = await asyncio.gather(*tasks, return_exceptions=True)
+    
+    # Filter out None and exceptions
+    valid_results = [r for r in results if r and not isinstance(r, Exception)]
+    
+    await page.close()
+    return valid_results
+
+async def main():
+    async with async_playwright() as p:
+        # Launch browser
+        browser = await p.chromium.launch(headless=True)
+        context = await browser.new_context()
+        
+        # Categories to scrape
+        categories = [
+            'https://example.com/electronics',
+            'https://example.com/books',
+            'https://example.com/clothing'
+        ]
+        
+        # Scrape all categories concurrently
+        all_results = []
+        
+        category_tasks = [
+            scrape_category(context, cat_url, max_products=5)
+            for cat_url in categories
+        ]
+        
+        category_results = await asyncio.gather(*category_tasks)
+        
+        # Flatten results
+        for results in category_results:
+            all_results.extend(results)
+        
+        # Save to file
+        with open('products.json', 'w') as f:
+            json.dump(all_results, f, indent=2)
+        
+        print(f"\n✓ Total products scraped: {len(all_results)}")
+        print(f"✓ Saved to products.json")
+        
+        await context.close()
+        await browser.close()
+
+# Run the scraper
+if __name__ == '__main__':
+    asyncio.run(main())
+```
+
+### Async with Rate Limiting
+
+```python
+import asyncio
+from playwright.async_api import async_playwright
+
+class RateLimiter:
+    """Simple rate limiter for async operations"""
+    def __init__(self, rate, per):
+        self.rate = rate  # Number of operations
+        self.per = per    # Per time period (seconds)
+        self.allowance = rate
+        self.last_check = asyncio.get_event_loop().time()
+    
+    async def acquire(self):
+        current = asyncio.get_event_loop().time()
+        time_passed = current - self.last_check
+        self.last_check = current
+        self.allowance += time_passed * (self.rate / self.per)
+        
+        if self.allowance > self.rate:
+            self.allowance = self.rate
+        
+        if self.allowance < 1.0:
+            sleep_time = (1.0 - self.allowance) * (self.per / self.rate)
+            await asyncio.sleep(sleep_time)
+            self.allowance = 0.0
+        else:
+            self.allowance -= 1.0
+
+async def scrape_with_rate_limit(page, url, limiter):
+    """Scrape with rate limiting"""
+    await limiter.acquire()
+    await page.goto(url)
+    title = await page.title()
+    print(f"Scraped: {title}")
+    return title
+
+async def main():
+    async with async_playwright() as p:
+        browser = await p.chromium.launch()
+        page = await browser.new_page()
+        
+        # Rate limiter: 2 requests per second
+        limiter = RateLimiter(rate=2, per=1.0)
+        
+        urls = [f'https://example.com/page{i}' for i in range(10)]
+        
+        tasks = [
+            scrape_with_rate_limit(page, url, limiter)
+            for url in urls
+        ]
+        
+        await asyncio.gather(*tasks)
+        
+        await browser.close()
+
+asyncio.run(main())
+```
+
+---
+
+## Best Practices
+
+### 1. Use Appropriate Selectors
+```python
+# Prefer stable selectors
+# ✓ Good: Data attributes
+page.click('[data-testid="submit-btn"]')
+
+# ✓ Good: Role-based (accessible)
+page.click('role=button[name="Submit"]')
+
+# ✗ Bad: Fragile class names
+page.click('.MuiButton-root-123')
+```
+
+### 2. Always Use Explicit Waits
+```python
+# ✓ Good: Wait for element
+await page.wait_for_selector('button')
+await page.click('button')
+
+# ✗ Bad: No waiting
+await page.click('button')  # May fail if button not ready
+```
+
+### 3. Use Async for Concurrent Operations
+```python
+# ✓ Good: Concurrent operations
+results = await asyncio.gather(
+    scrape_page(page1, url1),
+    scrape_page(page2, url2),
+    scrape_page(page3, url3)
+)
+
+# ✗ Bad: Sequential operations
+result1 = await scrape_page(page1, url1)
+result2 = await scrape_page(page2, url2)
+result3 = await scrape_page(page3, url3)
+```
+
+### 4. Use Browser Context for Isolation
+```python
+# ✓ Good: Isolated contexts
+context1 = await browser.new_context()
+context2 = await browser.new_context()
+
+# ✗ Bad: Shared state
+page1 = await browser.new_page()
+page2 = await browser.new_page()  # Shares cookies/storage
+```
+
+---
+
+## Summary
+
+Playwright provides a powerful and modern approach to browser automation:
+
+- **Browser Context**: Isolated sessions for parallel testing and user simulation
+- **Pages**: Individual tabs/windows for interaction with web content
+- **Selectors**: Multiple strategies (CSS, XPath, text, role) for locating elements
+- **Async/Await**: Efficient concurrent operations for better performance
+
+The combination of these features makes Playwright ideal for web scraping, testing, and automation tasks.
 
 ---
 
